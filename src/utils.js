@@ -1,5 +1,3 @@
-// All Utilites Functions Used By SharexSDK
-
 /**
  * The function extracts the plugin UID from a given URL.
  * @param url - The `url` parameter is a string that represents a URL.

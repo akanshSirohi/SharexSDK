@@ -3,9 +3,11 @@ const path = require('path');
 module.exports = {
   entry: './src/SharexSDK.js',
   output: {
-    filename: 'sharex_sdk.min.js',
     path: path.resolve(__dirname, 'dist'),
-    libraryTarget: 'commonjs2',
+    filename: 'sharex-sdk.min.js',
+    library: 'sharex-sdk',
+    libraryTarget: 'umd',
+    umdNamedDefine: true,
   },
   mode: 'production',
   module: {

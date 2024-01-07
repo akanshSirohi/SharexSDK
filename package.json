@@ -1,9 +1,8 @@
 {
   "name": "sharex-sdk",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
-  "main": "dist/sharex_sdk.min.js",
-  "type": "commonjs2",
+  "main": "dist/sharex-sdk.min.js",
   "scripts": {
     "build": "webpack"
   },
