@@ -1,6 +1,6 @@
 # SharexSDK Documentation
 
-The SharexSDK library is a JavaScript library that facilitates communication between clients and servers using WebSocket technology. It provides an abstraction for handling common actions in a WebSocket-based application. The library is designed to work seamlessly with ShareX, a popular open-source screen capturing tool.
+The SharexSDK library is a JavaScript library that facilitates communication between clients and servers using WebSocket technology. It provides an abstraction for handling common actions in a WebSocket-based application. The library is designed to develop the ShareX app plugins.
 
 ## Installation
 
