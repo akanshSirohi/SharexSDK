@@ -134,6 +134,31 @@ Parameters
 data: The new public data to be updated.
 ```
 
+#### 7. Request public data of user
+
+```js
+requestPublicData(uuid, callback)
+```
+
+Sends a request to the server to get the public data of a specific user and returns the result through a callback function.
+
+Parameters
+
+```
+uuid: The UUID of the user whose public data is to be requested.
+callback: A function to handle the response and perform actions with the public data.
+```
+
+Sample usage:-
+
+```js
+const recipientUUID = 'abcd-1234'; // Replace with the actual UUID
+sdk.requestPublicData(recipientUUID, (publicData) => {
+  console.log('Public data:', publicData);
+  // Do something with the public data
+});
+```
+
 ### USAGE EXAMPLE 1
 
 ```js
