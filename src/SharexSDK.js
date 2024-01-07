@@ -51,6 +51,8 @@ class SharexSDK {
                 USER_ARRIVE: "user_arrive",
                 SEND_MSG: "send_msg",
                 MSG_ARRIVE: "msg_arrive",
+                GET_PUBLIC_DATA_OF_USER: "get_public_data_of_user",
+                RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user"
             },
             writable: false
         });
@@ -63,8 +65,7 @@ class SharexSDK {
 
         // Internal Callback Functions
         this.returnAllUsers = null;
-
-        this.pingTimer = null;
+        this.returnPublicDataOfUser = null;
     }
 
     /**
@@ -132,6 +133,11 @@ class SharexSDK {
                         websocket_callbacks(this.serverActions.MSG_ARRIVE, data.message);
                     }
                     break;
+                case this.serverActions.RETURN_PUBLIC_DATA_OF_USER:
+                    if (this.returnPublicDataOfUser != null) {
+                        this.returnPublicDataOfUser(data.public_data);
+                    }
+                    break;
             }
         });
 
@@ -188,6 +194,29 @@ class SharexSDK {
                 action: this.serverActions.GET_ALL_USERS,
             }));
             this.returnAllUsers = callback;
+        } else {
+            throw new Error('WebSocket not initialized');
+        }
+    }
+
+    /**
+     * The function sends a request to a server to retrieve public data of a user identified by a UUID,
+     * and invokes a callback function with the retrieved data.
+     * @param uuid - The `uuid` parameter is a unique identifier for a user. It is used to specify
+     * which user's public data should be retrieved.
+     * @param callback - The callback parameter is a function that will be called once the public data
+     * of the user is retrieved. It is typically used to handle the response or perform additional
+     * actions with the data.
+     */
+    requestPublicData(uuid, callback) {     
+        if (this.init_websocket) {
+            this.websocket.send(JSON.stringify({
+                action: this.serverActions.GET_PUBLIC_DATA_OF_USER,
+                data: {
+                    uuid: uuid
+                }
+            }));
+            this.returnPublicDataOfUser = callback;
         } else {
             throw new Error('WebSocket not initialized');
         }
