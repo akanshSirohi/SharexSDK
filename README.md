@@ -37,7 +37,7 @@ The `publicData` object can be used to store any data, it will be stored on the 
 
 ### Methods
 
-#### Initialization:
+#### 1. Initialization:
 
 ```js
 init(websocket_callbacks)
@@ -62,7 +62,7 @@ sdk.MSG_ARRIVE: Called when a message is received from the server.
 'close': Called when an error occurs in the WebSocket connection.
 ```
 
-#### Send Message:
+#### 2. Send Message:
 
 ```js
 sendMsg(uuid, msg)
@@ -77,7 +77,7 @@ uuid: A unique identifier for the message recipient.
 msg: The message to be sent.
 ```
 
-#### Get list of connected clients:
+#### 3. Get list of connected clients:
 
 ```js
 getAllUsers(callback)
@@ -104,7 +104,7 @@ Parameters
 callback: A function to handle the response and perform actions with the list of all users.
 ```
 
-#### Get public data
+#### 4. Get public data
 
 ```js
 getMyPublicData()
@@ -112,7 +112,7 @@ getMyPublicData()
 
 Returns the public data associated with the current session.
 
-#### Get UUID
+#### 5. Get UUID
     
 ```js
 getMyUUID()
@@ -120,7 +120,7 @@ getMyUUID()
 
 Returns the UUID (Universally Unique Identifier) of the current session.
 
-#### Update public data
+#### 6. Update public data
 
 ```js
 updateMyPublicData(data)
