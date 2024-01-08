@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { extractPluginUID } from './utils.js';
+import JsonDBAdapter from './JsonDBAdapter.js';
 
 class SharexSDK {
 
@@ -138,11 +139,28 @@ class SharexSDK {
                         this.returnPublicDataOfUser(data.public_data);
                     }
                     break;
+                default:
+                    if(data.action.startsWith('db_action_')) {
+                        this.db_instance.websocket_handleDBAction(data);
+                    }
             }
         });
 
         // Init WebSocket bool
         this.init_websocket = true;
+    }
+
+    /**
+     * The function creates a new instance of a database with the given name and callbacks.
+     * @param db_name - The name of the database that you want to create.
+     * @param db_callbacks - The db_callbacks parameter is an object that contains callback functions
+     * for various database events. These callback functions are used to handle the response or perform
+     * certain actions when these events occur.
+     * @returns The `db_instance` object is being returned.
+     */
+    createDBInstance(db_name, db_callbacks) {
+        this.db_instance = new JsonDBAdapter(db_name, this.websocket, db_callbacks);
+        return this.db_instance;
     }
 
     /**
