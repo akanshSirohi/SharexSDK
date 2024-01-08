@@ -52,9 +52,9 @@ websocket_callbacks (optional): A callback function to handle different WebSocke
 List of WebSocket events:
 ```
 // Special events
-sdk.USER_LEFT: Called when a user leaves the server.
-sdk.USER_ARRIVE: Called when a user joins the server.
-sdk.MSG_ARRIVE: Called when a message is received from the server.
+'user_left': Called when a user leaves the server.
+'user_arrive': Called when a user joins the server.
+'msg_arrive': Called when a message is received from the server.
 
 // WebSocket events
 'open': Called when the WebSocket connection is established.
@@ -191,11 +191,11 @@ const sdk = new SharexSDK({
 });
 
 sdk.init((action, data)=>{
-    if(sdk.serverActions.USER_LEFT == action) {
+    if(action == 'user_left') {
         console.log("A User Left:", data);
-    }else if(sdk.serverActions.MSG_ARRIVE == action) {
+    }else if(action == 'msg_arrive') {
         console.log("A Message Arrived:", data);
-    }else if(sdk.serverActions.USER_ARRIVE == action) {
+    }else if(action == 'user_arrive') {
         console.log("A User Arrived:", data);
     }
 });
