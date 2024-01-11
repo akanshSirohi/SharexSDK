@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 class JsonDBAdapter {
 
     constructor(db_name, websocket, db_callbacks) {
@@ -34,11 +36,30 @@ class JsonDBAdapter {
         }        
     }
 
-    insert(collection, data, callback = null) {
-        // verify if data is a object
+    insert(collection, data, options = null, callback = null) {
+        // Verify if data is an object
         if(typeof data != 'object' || data == null || data == undefined) {
-            throw new Error('Data must be a object');
+            throw new Error('data must be a object');
         }
+
+         // Handle the case where options is a callback
+        if(typeof options == 'function') {
+            callback = options;
+            options = null;
+        }
+
+        // Verify if options is an object
+        if (options !== null && typeof options !== 'object') {
+            throw new Error('options must be an object');
+        } else {
+            // Generate UUID if specified in options
+            if (options?.uuid === true) {
+                data._uuid = uuidv4();
+            } else if (options?.uuid !== undefined) {
+                throw new Error('options.uuid must be a boolean');
+            }
+        }
+
         this.insert_data_callback = callback;
         this.websocket.send(JSON.stringify({
             action: 'db_action_insert_data',
