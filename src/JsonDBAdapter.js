@@ -33,36 +33,47 @@ class JsonDBAdapter {
             if(this.insert_data_callback != null) {
                 this.insert_data_callback(data.data);
             }
-        }        
+        }
     }
 
     insert(collection, data, options = null, callback = null) {
-        // Verify if data is an object
-        if(typeof data != 'object' || data == null || data == undefined) {
-            throw new Error('data must be a object');
+        let isBulk = Array.isArray(data);
+        
+        // Verify if data is an object or an array
+        if ((!isBulk && typeof data !== 'object') || (isBulk && !Array.isArray(data))) {
+            throw new Error(isBulk ? 'data must be an array of objects' : 'data must be an object');
         }
-
-         // Handle the case where options is a callback
-        if(typeof options == 'function') {
+    
+        // Handle the case where options is a callback
+        if (typeof options === 'function') {
             callback = options;
             options = null;
         }
-
+    
         // Verify if options is an object
         if (options !== null && typeof options !== 'object') {
             throw new Error('options must be an object');
         } else {
             // Generate UUID if specified in options
             if (options?.uuid === true) {
-                data._uuid = uuidv4();
+                if (isBulk) {
+                    data.forEach((element, index) => {
+                        data[index]._uuid = uuidv4();
+                    });
+                } else {
+                    data._uuid = uuidv4();
+                }
             } else if (options?.uuid !== undefined) {
                 throw new Error('options.uuid must be a boolean');
             }
         }
 
         this.insert_data_callback = callback;
+    
+        const action = isBulk ? 'db_action_insert_data_bulk' : 'db_action_insert_data';
+    
         this.websocket.send(JSON.stringify({
-            action: 'db_action_insert_data',
+            action: action,
             data: {
                 db_name: this.db_name,
                 collection: collection,
@@ -70,6 +81,7 @@ class JsonDBAdapter {
             }
         }));
     }
+    
 }
 
 export default JsonDBAdapter;
