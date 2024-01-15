@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { convertToDotNotation } from './utils.js';
 
 class JsonDBAdapter {
 
@@ -9,6 +10,7 @@ class JsonDBAdapter {
 
         this.insert_data_callback = null;
         this.get_data_callback = null;
+        this.update_data_callback = null;
 
         Object.defineProperty(this, 'DBActions', {
             value: {
@@ -35,6 +37,8 @@ class JsonDBAdapter {
                 GET_ALL_DATA_RESULT: "get_all_data_result",
                 GET_DATA: "get_data",
                 GET_DATA_RESULT: "get_data_result",
+                UPDATE_DATA: "update_data",
+                UPDATE_DATA_RESULT: "update_data_result",
             },
             writable: false
         });
@@ -60,6 +64,10 @@ class JsonDBAdapter {
                 }else{
                     this.get_data_callback(JSON.parse(data.data));
                 }
+            }
+        }else if(data.action == this.dbActions.UPDATE_DATA_RESULT) {
+            if(this.update_data_callback != null) {
+                this.update_data_callback(JSON.parse(data.data));
             }
         }
     }
@@ -153,6 +161,34 @@ class JsonDBAdapter {
                 }
             }));
         }
+    }
+
+    update(collection, query, document, callback) {
+        // Validate arguments
+        if (typeof callback !== 'function') {
+            throw new Error('callback must be a function');
+        } else if (typeof collection !== 'string') {
+            throw new Error('collection must be a string');
+        } else if (typeof query !== 'string') {
+            throw new Error('query must be a string');
+        }else if (typeof document !== 'object') {
+            throw new Error('document must be an object');
+        }
+
+        this.update_data_callback = callback;
+
+        let update_data_arr = convertToDotNotation(document);
+        console.log("Converted Notation: ",update_data_arr);
+
+        this.websocket.send(JSON.stringify({
+            action: `db_action_${this.dbActions.UPDATE_DATA}`,
+            data: {
+                db_name: this.db_name,
+                collection: collection,
+                query: query,
+                update: update_data_arr
+            }
+        }));
     }
 }
 
