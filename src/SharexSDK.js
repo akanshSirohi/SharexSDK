@@ -3,16 +3,15 @@ import { extractPluginUID } from './utils.js';
 import JsonDBAdapter from './JsonDBAdapter.js';
 
 class SharexSDK {
-
     /**
      * This is a constructor function that initializes a WebSocket connection and sets up various
      * properties and methods for managing the connection and handling server actions.
-     * @param [public_data] - An object that contains public data for the constructor.
+     * @param [options] - An object containing optional parameters for the constructor.
      */
-    constructor(public_data = {}) {
+    constructor(options = {}) {
 
-        if(typeof public_data !== 'object' || public_data === null) {
-            throw new Error('Public data must be an object');
+        if(typeof options !== 'object' || options === null) {
+            throw new Error('options must be an object');
         }
 
         // Hostname
@@ -36,8 +35,40 @@ class SharexSDK {
         // Connection Status Bool
         this.connectionStatus = false;
 
+        this.websocket_callbacks = null;
+        this.db_instance = null;
+
+        this.reconnect_timer = null;
+        this.reconnect_timer_interval = 3000;
+
+        if(options.hasOwnProperty('reconnect_interval')) {
+            if(typeof options.reconnect_interval !== 'number') {
+                throw new Error('reconnect_interval must be a number');
+            }
+            this.reconnect_timer_interval = options.reconnect_interval;
+        }
+
         // Public Init Data
-        this.public_data = public_data;
+        if(options.hasOwnProperty('public_data')) {
+            if(typeof options.public_data !== 'object' || options.public_data === null) {
+                throw new Error('public_data must be an object');
+            }
+            this.public_data = options.public_data;
+        }else{
+            this.public_data = {};
+        }
+
+        // Preserve session id
+        if(options.hasOwnProperty('preserve_session_id')) {
+            // Check if preserve_session_id is a boolean
+            if(typeof options.preserve_session_id !== 'boolean') {
+                throw new Error('preserve_session_id must be a boolean');
+            }
+            this.preserve_session_id = options.preserve_session_id;
+        }else{
+            this.preserve_session_id = false;
+        }
+
 
         // Init WebSocket bool
         this.init_websocket = false;
@@ -78,6 +109,8 @@ class SharexSDK {
      * itself.
      */
     init(websocket_callbacks = null) {
+        this.websocket_callbacks = websocket_callbacks;
+        
         // WebSocket Init
         this.websocket = new WebSocket(`ws://${this.hostname}:${this.port + 1}`);
         this.websocket.addEventListener("open", (event) => {
@@ -91,23 +124,39 @@ class SharexSDK {
                 }
             }));
 
-            if (websocket_callbacks != null) {
-                websocket_callbacks('open', event);
+            if(this.reconnect_timer !== null) {
+                clearTimeout(this.reconnect_timer);
+                this.reconnect_timer = null;
+                if(this.db_instance !== null) {
+                    this.db_instance.updateInternalWebsocket(this.websocket);
+                }
+                if(this.websocket_callbacks != null) {
+                    this.websocket_callbacks('reconnect', event);
+                }
+            }else{
+                if(this.websocket_callbacks != null) {
+                    this.websocket_callbacks('open', event);
+                }
             }
         });
 
         this.websocket.addEventListener("error", (event) => {
-            if (websocket_callbacks != null) {
-                websocket_callbacks('error', event);
+            if (this.websocket_callbacks != null) {
+                this.websocket_callbacks('error', event);
             }
         });
 
         this.websocket.addEventListener("close", (event) => {
             this.connectionStatus = false;
-
-            if (websocket_callbacks != null) {
-                websocket_callbacks('close', event);
+            this.websocket = null;
+            if (this.websocket_callbacks != null) {
+                this.websocket_callbacks('close', event);
             }
+            
+            // Reconnect
+            this.reconnect_timer = setTimeout(() => {
+                this.init(this.websocket_callbacks);
+            }, this.reconnect_timer_interval);
         });
 
         this.websocket.addEventListener("message", (event) => {
@@ -120,18 +169,18 @@ class SharexSDK {
                     }
                     break;
                 case this.serverActions.USER_ARRIVE:
-                    if (websocket_callbacks != null) {
-                        websocket_callbacks(this.serverActions.USER_ARRIVE, data.user);
+                    if (this.websocket_callbacks != null) {
+                        this.websocket_callbacks(this.serverActions.USER_ARRIVE, data.user);
                     }
                     break;
                 case this.serverActions.USER_LEFT:
-                    if (websocket_callbacks != null) {
-                        websocket_callbacks(this.serverActions.USER_LEFT, data);
+                    if (this.websocket_callbacks != null) {
+                        this.websocket_callbacks(this.serverActions.USER_LEFT, data);
                     }
                     break;
                 case this.serverActions.MSG_ARRIVE:
-                    if (websocket_callbacks != null) {
-                        websocket_callbacks(this.serverActions.MSG_ARRIVE, data.message);
+                    if (this.websocket_callbacks != null) {
+                        this.websocket_callbacks(this.serverActions.MSG_ARRIVE, data.message);
                     }
                     break;
                 case this.serverActions.RETURN_PUBLIC_DATA_OF_USER:
