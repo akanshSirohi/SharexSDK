@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { extractPluginUID } from './utils.js';
 import JsonDBAdapter from './JsonDBAdapter.js';
 
@@ -14,6 +14,17 @@ class SharexSDK {
             throw new Error('options must be an object');
         }
 
+        // Preserve session id
+        if(options.hasOwnProperty('preserve_session_id')) {
+            // Check if preserve_session_id is a boolean
+            if(typeof options.preserve_session_id !== 'boolean') {
+                throw new Error('preserve_session_id must be a boolean');
+            }
+            this.preserve_session_id = options.preserve_session_id;
+        }else{
+            this.preserve_session_id = false;
+        }
+
         // Hostname
         Object.defineProperty(this, 'hostname', {
             value: window.location.hostname,
@@ -26,11 +37,23 @@ class SharexSDK {
             writable: false
         });
         
-        // UUID for session
-        Object.defineProperty(this, 'uuid', {
-            value: uuidv4(),
-            writable: false
-        });
+        if(!this.preserve_session_id) {
+            // UUID for session
+            Object.defineProperty(this, 'uuid', {
+                value: uuidv4(),
+                writable: false
+            });
+        }else{
+            // Check if preserve_session_id is stored in localStorage and is a valid UUID
+            if(!localStorage.hasOwnProperty('sharex_sdk_uuid') || !uuidValidate(localStorage.getItem('sharex_sdk_uuid'))) {
+                localStorage.setItem('sharex_sdk_uuid', uuidv4());
+            }
+            // UUID for session retrieved from localStorage
+            Object.defineProperty(this, 'uuid', {
+                value: localStorage.getItem('sharex_sdk_uuid'),
+                writable: false
+            }); 
+        }
 
         // Connection Status Bool
         this.connectionStatus = false;
@@ -56,17 +79,6 @@ class SharexSDK {
             this.public_data = options.public_data;
         }else{
             this.public_data = {};
-        }
-
-        // Preserve session id
-        if(options.hasOwnProperty('preserve_session_id')) {
-            // Check if preserve_session_id is a boolean
-            if(typeof options.preserve_session_id !== 'boolean') {
-                throw new Error('preserve_session_id must be a boolean');
-            }
-            this.preserve_session_id = options.preserve_session_id;
-        }else{
-            this.preserve_session_id = false;
         }
 
 
