@@ -25,17 +25,61 @@ class SharexSDK {
             this.preserve_session_id = false;
         }
 
-        // Hostname
-        Object.defineProperty(this, 'hostname', {
-            value: window.location.hostname,
-            writable: false
-        });
+        // Default debug mode
+        this.debug = false;
 
-        // Port
-        Object.defineProperty(this, 'port', {
-            value: parseInt(window.location.port),
-            writable: false
-        });
+        if(options.hasOwnProperty('debug')) {
+            // Check if debug is a object
+            if(typeof options.debug !== 'object' || options.debug === null) {
+                throw new Error('debug must be an object');
+            }
+            // Check if debug has a property called mode
+            if(options.debug.hasOwnProperty('host') && typeof options.debug.host == 'string' && options.debug.hasOwnProperty('port')) {
+                
+                // Hostname
+                Object.defineProperty(this, 'hostname', {
+                    value: options.debug.host,
+                    writable: false
+                });
+
+                // Port
+                Object.defineProperty(this, 'port', {
+                    value: parseInt(options.debug.port),
+                    writable: false
+                });
+
+                // Package Name
+                Object.defineProperty(this, 'package_name', {
+                    value: 'debug',
+                    writable: false
+                });
+
+                // Debug mode
+                this.debug = true;
+            }else{
+                throw new Error('debug must have a property called host and port');
+            }
+        }
+
+        if(!this.debug) {
+            // Hostname
+            Object.defineProperty(this, 'hostname', {
+                value: window.location.hostname,
+                writable: false
+            });
+
+            // Port
+            Object.defineProperty(this, 'port', {
+                value: parseInt(window.location.port),
+                writable: false
+            });
+
+            // Package Name
+            Object.defineProperty(this, 'package_name', {
+                value: extractPluginUID(window.location.pathname).replaceAll('-', '.'),
+                writable: false
+            });
+        }
         
         if(!this.preserve_session_id) {
             // UUID for session
@@ -98,12 +142,6 @@ class SharexSDK {
                 GET_PUBLIC_DATA_OF_USER: "get_public_data_of_user",
                 RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user"
             },
-            writable: false
-        });
-
-        // Package Name
-        Object.defineProperty(this, 'package_name', {
-            value: extractPluginUID(window.location.pathname).replaceAll('-', '.'),
             writable: false
         });
 
