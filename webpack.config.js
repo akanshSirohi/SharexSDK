@@ -8,6 +8,7 @@ module.exports = {
     library: 'sharex-sdk',
     libraryTarget: 'umd',
     umdNamedDefine: true,
+    globalObject: 'this',
   },
   mode: 'production',
   module: {

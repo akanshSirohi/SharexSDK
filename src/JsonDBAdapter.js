@@ -1,7 +1,4 @@
 (function (root, factory) {
-    if (typeof self === 'undefined') {
-        global.self = global;
-    }
     if (typeof define === 'function' && define.amd) {
         // AMD
         define(['uuid', './utils'], factory);
