@@ -125,7 +125,7 @@
     
             // Public Init Data
             if(options.hasOwnProperty('public_data')) {
-                if(typeof options.public_data !== 'object' || options.public_data === null) {
+                if(typeof options.public_data !== 'object' || options.public_data === null || Array.isArray(options.public_data)) {
                     throw new Error('public_data must be an object');
                 }
                 this.public_data = options.public_data;
@@ -148,7 +148,11 @@
                     SEND_MSG: "send_msg",
                     MSG_ARRIVE: "msg_arrive",
                     GET_PUBLIC_DATA_OF_USER: "get_public_data_of_user",
-                    RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user"
+                    RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user",
+                    CREATE_JSON_FILE: "create_json_file",
+                    RETURN_CREATE_JSON_FILE: "return_create_json_file",
+                    READ_JSON_FILE: "read_json_file",
+                    RETURN_READ_JSON_FILE: "return_read_json_file",
                 },
                 writable: false
             });
@@ -156,6 +160,8 @@
             // Internal Callback Functions
             this.returnAllUsers = null;
             this.returnPublicDataOfUser = null;
+            this.returnCreateJSONFile = null;
+            this.returnReadJSONFile = null;
         }
     
         /**
@@ -244,6 +250,11 @@
                     case this.serverActions.RETURN_PUBLIC_DATA_OF_USER:
                         if (this.returnPublicDataOfUser != null) {
                             this.returnPublicDataOfUser(data.public_data);
+                        }
+                        break;
+                    case this.serverActions.RETURN_CREATE_JSON_FILE:
+                        if (this.returnCreateJSONFile != null) {
+                            this.returnCreateJSONFile(data);
                         }
                         break;
                     default:
@@ -353,7 +364,7 @@
          * an object containing the updated information.
          */
         updateMyPublicData(data) {
-            if(typeof data === 'object' && data !== null) {
+            if(typeof data === 'object' && data !== null && !Array.isArray(data)) {
                 this.public_data = data;
                 this.websocket.send(JSON.stringify({
                     action: this.serverActions.UPDATE_USER,
@@ -365,6 +376,62 @@
                 throw new Error('Public data must be an object');
             }
         }
+
+        /**
+         * The function `createJSONFile` takes in a filename, data, and callback function, and sends a
+         * WebSocket request to create a JSON file with the given filename and data.
+         * @param filename - The name of the JSON file you want to create. It should be a string.
+         * @param data - The `data` parameter is the JSON data that you want to write to the file. It
+         * can be either an object or an array.
+         * @param callback - The callback parameter is a function that will be called once the JSON
+         * file creation is complete. It is used to handle the result or any errors that may occur
+         * during the process.
+         */
+        createJSONFile(filename, data, callback) {
+            if(typeof filename !== 'string') {
+                throw new Error('Filename must be a string');
+            }
+            // Check if data is either an object or an array
+            if(typeof data !== 'object' || data === null) {
+                throw new Error('Data must be an object or an array');
+            }
+            if(typeof callback !== 'function') {
+                throw new Error('Callback must be a function');
+            }
+            this.returnCreateJSONFile = callback;
+            this.websocket.send(JSON.stringify({
+                action: this.serverActions.CREATE_JSON_FILE,
+                data: {
+                    filename: filename,
+                    data: data
+                }
+            }));
+        }
+
+        /**
+         * The function `readJSONFile` sends a request to a server to read a JSON file and returns the
+         * result through a callback function.
+         * @param filename - The filename parameter is a string that represents the name of the JSON
+         * file that you want to read.
+         * @param callback - The `callback` parameter is a function that will be called once the JSON
+         * file has been read. It is used to handle the data returned from reading the file.
+         */
+        readJSONFile(filename, callback) {
+            if(typeof filename !== 'string') {
+                throw new Error('Filename must be a string');
+            }
+            if(typeof callback !== 'function') {
+                throw new Error('Callback must be a function');
+            }
+            this.returnReadJSONFile = callback;
+            this.websocket.send(JSON.stringify({
+                action: this.serverActions.READ_JSON_FILE,
+                data: {
+                    filename: filename
+                }
+            }));
+        }
+
     }
 
     return SharexSDK;

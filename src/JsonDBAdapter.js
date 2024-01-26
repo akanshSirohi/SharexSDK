@@ -147,7 +147,7 @@
             }
         
             // Verify if options is an object
-            if (options !== null && typeof options !== 'object') {
+            if (options !== null && typeof options !== 'object' && !Array.isArray(options)) {
                 throw new Error('options must be an object');
             } else {
                 // Generate UUID if specified in options
@@ -252,7 +252,7 @@
                 throw new Error('collection must be a string');
             } else if (typeof uuid !== 'string') {
                 throw new Error('uuid must be a string');
-            }else if (typeof document !== 'object') {
+            }else if (typeof document !== 'object' && !Array.isArray(document)) {
                 throw new Error('document must be an object');
             }
             this.update(collection, `$[?(@._uuid == '${uuid}')]`, document, callback);
@@ -280,14 +280,13 @@
                 throw new Error('collection must be a string');
             } else if (typeof query !== 'string') {
                 throw new Error('query must be a string');
-            }else if (typeof document !== 'object') {
+            }else if (typeof document !== 'object' && !Array.isArray(document)) {
                 throw new Error('document must be an object');
             }
     
             this.update_data_callback = callback;
     
             let update_data_arr = utils.convertToDotNotation(document);
-            console.log("Converted Notation: ",update_data_arr);
     
             this.websocket.send(JSON.stringify({
                 action: `db_action_${this.dbActions.UPDATE_DATA}`,

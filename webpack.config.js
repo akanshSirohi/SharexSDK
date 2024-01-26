@@ -10,6 +10,7 @@ module.exports = {
     umdNamedDefine: true,
     globalObject: 'this',
   },
+  devtool: 'eval-source-map',
   mode: 'production',
   module: {
     rules: [
