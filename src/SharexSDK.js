@@ -16,6 +16,52 @@
          * properties and methods for managing the connection and handling server actions.
          * @param [options] - An object containing optional parameters for the constructor.
          */
+
+        // List of private variables
+
+        #preserve_session_id = false; // Default preserve_session_id
+        #debug = false; // Default debug mode
+        #hostname = null; // Default hostname
+        #port = null; // Default port
+        #package_name = null; // Default package name
+        #uuid = null; // Default uuid
+
+        #connectionStatus = false; // Default connection status
+        #websocket_callbacks = null; // Default websocket callbacks
+        #db_instance = null; // Default db instance
+        #reconnect_timer = null; // Default reconnect timer
+        #reconnect_timer_interval = 3000; // Default reconnect timer interval
+
+        #public_data = {}; // Default public data
+        #init_websocket = false; // Default init websocket
+
+        // List of server actions
+        #serverActions = {
+            INIT_USER: "init_user",
+            UPDATE_USER_DATA: "update_user_data",
+            GET_ALL_USERS: "get_all_users",
+            RETURN_ALL_USERS: "return_all_users",
+            USER_LEFT: "user_left",
+            USER_ARRIVE: "user_arrive",
+            SEND_MSG: "send_msg",
+            MSG_ARRIVE: "msg_arrive",
+            GET_PUBLIC_DATA_OF_USER: "get_public_data_of_user",
+            RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user",
+            CREATE_JSON_FILE: "create_json_file",
+            RETURN_CREATE_JSON_FILE: "return_create_json_file",
+            READ_JSON_FILE: "read_json_file",
+            RETURN_READ_JSON_FILE: "return_read_json_file",
+        };
+
+        // Internal Callback Functions
+        #returnAllUsers = null; // Default return all users
+        #returnPublicDataOfUser = null; // Default return public data of user
+        #returnCreateJSONFile = null; // Default return create json file
+        #returnReadJSONFile = null; // Default return read json file
+
+        // Default websocket
+        #websocket = null;
+
         constructor(options = {}) {
     
             if(typeof options !== 'object' || options === null) {
@@ -28,13 +74,8 @@
                 if(typeof options.preserve_session_id !== 'boolean') {
                     throw new Error('preserve_session_id must be a boolean');
                 }
-                this.preserve_session_id = options.preserve_session_id;
-            }else{
-                this.preserve_session_id = false;
+                this.#preserve_session_id = options.preserve_session_id;
             }
-    
-            // Default debug mode
-            this.debug = false;
     
             if(options.hasOwnProperty('debug')) {
                 // Check if debug is a object
@@ -45,82 +86,49 @@
                 if(options.debug.hasOwnProperty('host') && typeof options.debug.host == 'string' && options.debug.hasOwnProperty('port')) {
                     
                     // Hostname
-                    Object.defineProperty(this, 'hostname', {
-                        value: options.debug.host,
-                        writable: false
-                    });
+                    this.#hostname = options.debug.host;
     
                     // Port
-                    Object.defineProperty(this, 'port', {
-                        value: parseInt(options.debug.port),
-                        writable: false
-                    });
-    
+                    this.#port = parseInt(options.debug.port);
+                    
                     // Package Name
-                    Object.defineProperty(this, 'package_name', {
-                        value: 'debug',
-                        writable: false
-                    });
+                    this.#package_name = 'debug';
     
                     // Debug mode
-                    this.debug = true;
+                    this.#debug = true;
                 }else{
                     throw new Error('debug must have a property called host and port');
                 }
             }
     
-            if(!this.debug) {
+            if(!this.#debug) {
                 // Hostname
-                Object.defineProperty(this, 'hostname', {
-                    value: window.location.hostname,
-                    writable: false
-                });
+                this.#hostname = window.location.hostname;
     
                 // Port
-                Object.defineProperty(this, 'port', {
-                    value: parseInt(window.location.port),
-                    writable: false
-                });
+                this.#port = parseInt(window.location.port);
     
                 // Package Name
-                Object.defineProperty(this, 'package_name', {
-                    value: utils.extractPluginUID(window.location.pathname).replaceAll('-', '.'),
-                    writable: false
-                });
+                this.#package_name = utils.extractPluginUID(window.location.pathname).replaceAll('-', '.');
             }
             
-            if(!this.preserve_session_id) {
+            if(!this.#preserve_session_id) {
                 // UUID for session
-                Object.defineProperty(this, 'uuid', {
-                    value: uuid.v4(),
-                    writable: false
-                });
+                this.#uuid = uuid.v4();
             }else{
                 // Check if preserve_session_id is stored in localStorage and is a valid UUID
                 if(!localStorage.hasOwnProperty('sharex_sdk_uuid') || !uuid.validate(localStorage.getItem('sharex_sdk_uuid'))) {
                     localStorage.setItem('sharex_sdk_uuid', uuid.v4());
                 }
                 // UUID for session retrieved from localStorage
-                Object.defineProperty(this, 'uuid', {
-                    value: localStorage.getItem('sharex_sdk_uuid'),
-                    writable: false
-                }); 
+                this.#uuid = localStorage.getItem('sharex_sdk_uuid')
             }
-    
-            // Connection Status Bool
-            this.connectionStatus = false;
-    
-            this.websocket_callbacks = null;
-            this.db_instance = null;
-    
-            this.reconnect_timer = null;
-            this.reconnect_timer_interval = 3000;
     
             if(options.hasOwnProperty('reconnect_interval')) {
                 if(typeof options.reconnect_interval !== 'number') {
                     throw new Error('reconnect_interval must be a number');
                 }
-                this.reconnect_timer_interval = options.reconnect_interval;
+                this.#reconnect_timer_interval = options.reconnect_interval;
             }
     
             // Public Init Data
@@ -128,40 +136,10 @@
                 if(typeof options.public_data !== 'object' || options.public_data === null || Array.isArray(options.public_data)) {
                     throw new Error('public_data must be an object');
                 }
-                this.public_data = options.public_data;
-            }else{
-                this.public_data = {};
+                this.#public_data = options.public_data;
             }
     
-    
-            // Init WebSocket bool
-            this.init_websocket = false;
-    
-            Object.defineProperty(this, 'serverActions', {
-                value: {
-                    INIT_USER: "init_user",
-                    UPDATE_USER_DATA: "update_user_data",
-                    GET_ALL_USERS: "get_all_users",
-                    RETURN_ALL_USERS: "return_all_users",
-                    USER_LEFT: "user_left",
-                    USER_ARRIVE: "user_arrive",
-                    SEND_MSG: "send_msg",
-                    MSG_ARRIVE: "msg_arrive",
-                    GET_PUBLIC_DATA_OF_USER: "get_public_data_of_user",
-                    RETURN_PUBLIC_DATA_OF_USER: "return_public_data_of_user",
-                    CREATE_JSON_FILE: "create_json_file",
-                    RETURN_CREATE_JSON_FILE: "return_create_json_file",
-                    READ_JSON_FILE: "read_json_file",
-                    RETURN_READ_JSON_FILE: "return_read_json_file",
-                },
-                writable: false
-            });
-    
-            // Internal Callback Functions
-            this.returnAllUsers = null;
-            this.returnPublicDataOfUser = null;
-            this.returnCreateJSONFile = null;
-            this.returnReadJSONFile = null;
+            
         }
     
         /**
@@ -173,99 +151,104 @@
          * itself.
          */
         init(websocket_callbacks = null) {
-            this.websocket_callbacks = websocket_callbacks;
+            this.#websocket_callbacks = websocket_callbacks;
             
             // WebSocket Init
-            this.websocket = new WebSocket(`ws://${this.hostname}:${this.port + 1}`);
-            this.websocket.addEventListener("open", (event) => {
-                this.connectionStatus = true;
-                this.websocket.send(JSON.stringify({
-                    action: this.serverActions.INIT_USER,
-                    package_name: this.package_name,
+            this.#websocket = new WebSocket(`ws://${this.#hostname}:${this.#port + 1}`);
+            this.#websocket.addEventListener("open", (event) => {
+                this.#connectionStatus = true;
+                this.#websocket.send(JSON.stringify({
+                    action: this.#serverActions.INIT_USER,
+                    package_name: this.#package_name,
                     data: {
-                        uuid: this.uuid,
-                        public_data: this.public_data
+                        uuid: this.#uuid,
+                        public_data: this.#public_data
                     }
                 }));
     
-                if(this.reconnect_timer !== null) {
-                    clearTimeout(this.reconnect_timer);
-                    this.reconnect_timer = null;
-                    if(this.db_instance !== null) {
-                        this.db_instance.updateInternalWebsocket(this.websocket);
+                if(this.#reconnect_timer !== null) {
+                    clearTimeout(this.#reconnect_timer);
+                    this.#reconnect_timer = null;
+                    if(this.#db_instance !== null) {
+                        this.#db_instance.updateInternalWebsocket(this.#websocket);
                     }
-                    if(this.websocket_callbacks != null) {
-                        this.websocket_callbacks('reconnect', event);
+                    if(this.#websocket_callbacks != null) {
+                        this.#websocket_callbacks('reconnect', event);
                     }
                 }else{
-                    if(this.websocket_callbacks != null) {
-                        this.websocket_callbacks('open', event);
+                    if(this.#websocket_callbacks != null) {
+                        this.#websocket_callbacks('open', event);
                     }
                 }
             });
     
-            this.websocket.addEventListener("error", (event) => {
-                if (this.websocket_callbacks != null) {
-                    this.websocket_callbacks('error', event);
+            this.#websocket.addEventListener("error", (event) => {
+                if (this.#websocket_callbacks != null) {
+                    this.#websocket_callbacks('error', event);
                 }
             });
     
-            this.websocket.addEventListener("close", (event) => {
-                this.connectionStatus = false;
-                this.websocket = null;
-                if (this.websocket_callbacks != null) {
-                    this.websocket_callbacks('close', event);
+            this.#websocket.addEventListener("close", (event) => {
+                this.#connectionStatus = false;
+                this.#websocket = null;
+                if (this.#websocket_callbacks != null) {
+                    this.#websocket_callbacks('close', event);
                 }
                 
                 // Reconnect
-                this.reconnect_timer = setTimeout(() => {
-                    this.init(this.websocket_callbacks);
-                }, this.reconnect_timer_interval);
+                this.#reconnect_timer = setTimeout(() => {
+                    this.init(this.#websocket_callbacks);
+                }, this.#reconnect_timer_interval);
             });
     
-            this.websocket.addEventListener("message", (event) => {
+            this.#websocket.addEventListener("message", (event) => {
                 let data = event.data;
                 if(data.length > 0) {data = JSON.parse(data);}else{return;}
                 switch (data.action) {
-                    case this.serverActions.RETURN_ALL_USERS:
-                        if (this.returnAllUsers != null) {
-                            this.returnAllUsers(data.all_users);
+                    case this.#serverActions.RETURN_ALL_USERS:
+                        if (this.#returnAllUsers != null) {
+                            this.#returnAllUsers(data.all_users);
                         }
                         break;
-                    case this.serverActions.USER_ARRIVE:
-                        if (this.websocket_callbacks != null) {
-                            this.websocket_callbacks(this.serverActions.USER_ARRIVE, data.user);
+                    case this.#serverActions.USER_ARRIVE:
+                        if (this.#websocket_callbacks != null) {
+                            this.#websocket_callbacks(this.#serverActions.USER_ARRIVE, data.user);
                         }
                         break;
-                    case this.serverActions.USER_LEFT:
-                        if (this.websocket_callbacks != null) {
-                            this.websocket_callbacks(this.serverActions.USER_LEFT, data);
+                    case this.#serverActions.USER_LEFT:
+                        if (this.#websocket_callbacks != null) {
+                            this.#websocket_callbacks(this.#serverActions.USER_LEFT, data);
                         }
                         break;
-                    case this.serverActions.MSG_ARRIVE:
-                        if (this.websocket_callbacks != null) {
-                            this.websocket_callbacks(this.serverActions.MSG_ARRIVE, data.message);
+                    case this.#serverActions.MSG_ARRIVE:
+                        if (this.#websocket_callbacks != null) {
+                            this.#websocket_callbacks(this.#serverActions.MSG_ARRIVE, data.message);
                         }
                         break;
-                    case this.serverActions.RETURN_PUBLIC_DATA_OF_USER:
-                        if (this.returnPublicDataOfUser != null) {
-                            this.returnPublicDataOfUser(data.public_data);
+                    case this.#serverActions.RETURN_PUBLIC_DATA_OF_USER:
+                        if (this.#returnPublicDataOfUser != null) {
+                            this.#returnPublicDataOfUser(data.public_data);
                         }
                         break;
-                    case this.serverActions.RETURN_CREATE_JSON_FILE:
-                        if (this.returnCreateJSONFile != null) {
-                            this.returnCreateJSONFile(data);
+                    case this.#serverActions.RETURN_CREATE_JSON_FILE:
+                        if (this.#returnCreateJSONFile != null) {
+                            this.#returnCreateJSONFile(data);
+                        }
+                        break;
+                    case this.#serverActions.RETURN_READ_JSON_FILE:
+                        if (this.#returnReadJSONFile != null) {
+                            this.#returnReadJSONFile(data);
                         }
                         break;
                     default:
                         if(data.action.startsWith('db_action_')) {
-                            this.db_instance.websocket_handleDBAction(data);
+                            this.#db_instance.websocket_handleDBAction(data);
                         }
                 }
             });
     
             // Init WebSocket bool
-            this.init_websocket = true;
+            this.#init_websocket = true;
         }
     
         /**
@@ -277,8 +260,8 @@
          * @returns The `db_instance` object is being returned.
          */
         createDBInstance(db_name, db_callbacks) {
-            this.db_instance = new JsonDBAdapter(db_name, this.websocket, db_callbacks);
-            return this.db_instance;
+            this.#db_instance = new JsonDBAdapter(db_name, this.#websocket, db_callbacks);
+            return this.#db_instance;
         }
     
         /**
@@ -288,9 +271,9 @@
          * @param msg - The `msg` parameter is a string that represents the message you want to send.
          */
         sendMsg(uuid, msg) {
-            if (this.init_websocket) {
-                this.websocket.send(JSON.stringify({
-                    action: this.serverActions.SEND_MSG,
+            if (this.#init_websocket) {
+                this.#websocket.send(JSON.stringify({
+                    action: this.#serverActions.SEND_MSG,
                     data: {
                         uuid: uuid,
                         msg: msg
@@ -306,7 +289,15 @@
          * @returns The public_data variable is being returned.
          */
         getMyPublicData() {
-            return this.public_data;
+            return this.#public_data;
+        }
+
+        /**
+         * The function returns the connection status.
+         * @returns The value of the private variable `connectionStatus` is being returned.
+         */
+        getConnectionStatus() {
+            return this.#connectionStatus;
         }
     
         /**
@@ -314,7 +305,7 @@
          * @returns The UUID (Universally Unique Identifier) of the object.
          */
         getMyUUID() {
-            return this.uuid;
+            return this.#uuid;
         }
     
         /**
@@ -325,11 +316,11 @@
          * actions with the data.
          */
         getAllUsers(callback) {
-            if (this.init_websocket) {
-                this.websocket.send(JSON.stringify({
-                    action: this.serverActions.GET_ALL_USERS,
+            if (this.#init_websocket) {
+                this.#websocket.send(JSON.stringify({
+                    action: this.#serverActions.GET_ALL_USERS,
                 }));
-                this.returnAllUsers = callback;
+                this.#returnAllUsers = callback;
             } else {
                 throw new Error('WebSocket not initialized');
             }
@@ -345,14 +336,14 @@
          * actions with the data.
          */
         requestPublicData(uuid, callback) {     
-            if (this.init_websocket) {
-                this.websocket.send(JSON.stringify({
-                    action: this.serverActions.GET_PUBLIC_DATA_OF_USER,
+            if (this.#init_websocket) {
+                this.#websocket.send(JSON.stringify({
+                    action: this.#serverActions.GET_PUBLIC_DATA_OF_USER,
                     data: {
                         uuid: uuid
                     }
                 }));
-                this.returnPublicDataOfUser = callback;
+                this.#returnPublicDataOfUser = callback;
             } else {
                 throw new Error('WebSocket not initialized');
             }
@@ -365,11 +356,11 @@
          */
         updateMyPublicData(data) {
             if(typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                this.public_data = data;
-                this.websocket.send(JSON.stringify({
-                    action: this.serverActions.UPDATE_USER,
+                this.#public_data = data;
+                this.#websocket.send(JSON.stringify({
+                    action: this.#serverActions.UPDATE_USER,
                     data: {
-                        public_data: this.public_data
+                        public_data: this.#public_data
                     }
                 }));
             }else{
@@ -398,9 +389,9 @@
             if(typeof callback !== 'function') {
                 throw new Error('Callback must be a function');
             }
-            this.returnCreateJSONFile = callback;
-            this.websocket.send(JSON.stringify({
-                action: this.serverActions.CREATE_JSON_FILE,
+            this.#returnCreateJSONFile = callback;
+            this.#websocket.send(JSON.stringify({
+                action: this.#serverActions.CREATE_JSON_FILE,
                 data: {
                     filename: filename,
                     data: data
@@ -423,9 +414,9 @@
             if(typeof callback !== 'function') {
                 throw new Error('Callback must be a function');
             }
-            this.returnReadJSONFile = callback;
-            this.websocket.send(JSON.stringify({
-                action: this.serverActions.READ_JSON_FILE,
+            this.#returnReadJSONFile = callback;
+            this.#websocket.send(JSON.stringify({
+                action: this.#serverActions.READ_JSON_FILE,
                 data: {
                     filename: filename
                 }
