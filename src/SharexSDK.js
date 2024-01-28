@@ -28,9 +28,10 @@
 
         #connectionStatus = false; // Default connection status
         #websocket_callbacks = null; // Default websocket callbacks
-        #db_instance = null; // Default db instance
         #reconnect_timer = null; // Default reconnect timer
         #reconnect_timer_interval = 3000; // Default reconnect timer interval
+
+        #db_instance = null; // Default db instance
 
         #public_data = {}; // Default public data
         #init_websocket = false; // Default init websocket
@@ -257,8 +258,8 @@
          * @param db_callbacks - The db_callbacks parameter is an object that contains callback functions
          * for various database events. These callback functions are used to handle the response or perform
          * certain actions when these events occur.
-         * @returns The `db_instance` object is being returned.
-         */
+         * @returns {JsonDBAdapter} db_instance - An instance of JsonDBAdapter.
+        */
         createDBInstance(db_name, db_callbacks) {
             this.#db_instance = new JsonDBAdapter(db_name, this.#websocket, db_callbacks);
             return this.#db_instance;
