@@ -12,6 +12,34 @@
 }(typeof self !== 'undefined' ? self : this, function (uuid, utils) {
     class JsonDBAdapter {
 
+        // Properties
+        #db_name = null;
+        #websocket = null;
+        #db_callbacks = null;
+
+        // Callbacks
+        #insert_data_callback = null;
+        #get_data_callback = null;
+        #update_data_callback = null;
+        #delete_data_callback = null;
+
+
+        #dbActions = {
+            INIT_DB: "init_db",
+            INIT_DB_RESULT: "init_db_result",
+            INSERT_DATA: "insert_data",
+            INSERT_DATA_BULK: "insert_data_bulk",
+            INSERT_DATA_RESULT: "insert_data_result",
+            GET_ALL_DATA: "get_all_data",
+            GET_ALL_DATA_RESULT: "get_all_data_result",
+            GET_DATA: "get_data",
+            GET_DATA_RESULT: "get_data_result",
+            UPDATE_DATA: "update_data",
+            UPDATE_DATA_RESULT: "update_data_result",
+            DELETE_DATA: "delete_data",
+            DELETE_DATA_RESULT: "delete_data_result"
+        };
+
         /**
          * This is a constructor function for a JavaScript class that initializes a database connection and
          * sets up various callbacks for database actions.
@@ -24,14 +52,14 @@
          * database actions.
          */
         constructor(db_name, websocket, db_callbacks) {
-            this.db_name = db_name;
-            this.websocket = websocket;
-            this.db_callbacks = db_callbacks;
+            this.#db_name = db_name;
+            this.#websocket = websocket;
+            this.#db_callbacks = db_callbacks;
     
-            this.insert_data_callback = null;
-            this.get_data_callback = null;
-            this.update_data_callback = null;
-            this.delete_data_callback = null;
+            this.#insert_data_callback = null;
+            this.#get_data_callback = null;
+            this.#update_data_callback = null;
+            this.#delete_data_callback = null;
     
             Object.defineProperty(this, 'DBActions', {
                 value: {
@@ -40,31 +68,14 @@
                 writable: false
             });
     
-            this.websocket.send(JSON.stringify({
+            this.#websocket.send(JSON.stringify({
                 action: 'db_action_init_db',
                 data: {
-                    db_name: this.db_name
+                    db_name: this.#db_name
                 }
             }));
         
-            Object.defineProperty(this, 'dbActions', {
-                value: {
-                    INIT_DB: "init_db",
-                    INIT_DB_RESULT: "init_db_result",
-                    INSERT_DATA: "insert_data",
-                    INSERT_DATA_BULK: "insert_data_bulk",
-                    INSERT_DATA_RESULT: "insert_data_result",
-                    GET_ALL_DATA: "get_all_data",
-                    GET_ALL_DATA_RESULT: "get_all_data_result",
-                    GET_DATA: "get_data",
-                    GET_DATA_RESULT: "get_data_result",
-                    UPDATE_DATA: "update_data",
-                    UPDATE_DATA_RESULT: "update_data_result",
-                    DELETE_DATA: "delete_data",
-                    DELETE_DATA_RESULT: "delete_data_result"
-                },
-                writable: false
-            });
+            
         }
     
         /**
@@ -73,7 +84,7 @@
          * the internal WebSocket with.
          */
         updateInternalWebsocket(websocket) {
-            this.websocket = websocket;
+            this.#websocket = websocket;
         }
     
         /**
@@ -85,31 +96,31 @@
         websocket_handleDBAction(data) {
             // Here we receive the data from the server as callback
             data.action = data.action.replace('db_action_', '');
-            if(data.action == this.dbActions.INIT_DB_RESULT) {
-                this.db_callbacks(data.action, data.data);
-            }else if(data.action == this.dbActions.INSERT_DATA_RESULT) {
-                if(this.insert_data_callback != null) {
-                    this.insert_data_callback(JSON.parse(data.data));
+            if(data.action == this.#dbActions.INIT_DB_RESULT && this.#db_callbacks != null) {
+                this.#db_callbacks(data.action, data.data);
+            }else if(data.action == this.#dbActions.INSERT_DATA_RESULT) {
+                if(this.#insert_data_callback != null) {
+                    this.#insert_data_callback(JSON.parse(data.data));
                 }
-            }else if(data.action == this.dbActions.GET_ALL_DATA_RESULT || data.action == this.dbActions.GET_DATA_RESULT) {
-                if(this.get_data_callback != null) {
-                    if(data.action == this.dbActions.GET_DATA_RESULT) {
+            }else if(data.action == this.#dbActions.GET_ALL_DATA_RESULT || data.action == this.#dbActions.GET_DATA_RESULT) {
+                if(this.#get_data_callback != null) {
+                    if(data.action == this.#dbActions.GET_DATA_RESULT) {
                         let _data = JSON.parse(data.data);
-                        this.get_data_callback({
+                        this.#get_data_callback({
                             status: _data.status,
                             data: JSON.parse(_data.data)
                         });
                     }else{
-                        this.get_data_callback(JSON.parse(data.data));
+                        this.#get_data_callback(JSON.parse(data.data));
                     }
                 }
-            }else if(data.action == this.dbActions.UPDATE_DATA_RESULT) {
-                if(this.update_data_callback != null) {
-                    this.update_data_callback(JSON.parse(data.data));
+            }else if(data.action == this.#dbActions.UPDATE_DATA_RESULT) {
+                if(this.#update_data_callback != null) {
+                    this.#update_data_callback(JSON.parse(data.data));
                 }
-            }else if(data.action == this.dbActions.DELETE_DATA_RESULT) {
-                if(this.delete_data_callback != null) {
-                    this.delete_data_callback(JSON.parse(data.data));
+            }else if(data.action == this.#dbActions.DELETE_DATA_RESULT) {
+                if(this.#delete_data_callback != null) {
+                    this.#delete_data_callback(JSON.parse(data.data));
                 }
             }
         }
@@ -164,14 +175,14 @@
                 }
             }
     
-            this.insert_data_callback = callback;
+            this.#insert_data_callback = callback;
         
-            const action = isBulk ? `db_action_${this.dbActions.INSERT_DATA_BULK}` : `db_action_${this.dbActions.INSERT_DATA}`;
+            const action = isBulk ? `db_action_${this.#dbActions.INSERT_DATA_BULK}` : `db_action_${this.#dbActions.INSERT_DATA}`;
         
-            this.websocket.send(JSON.stringify({
+            this.#websocket.send(JSON.stringify({
                 action: action,
                 data: {
-                    db_name: this.db_name,
+                    db_name: this.#db_name,
                     collection: collection,
                     new_data: data
                 }
@@ -211,23 +222,23 @@
             const is_query = query !== null && typeof query === 'string';
     
             // Verify if query is an object
-            this.get_data_callback = callback;
+            this.#get_data_callback = callback;
     
             // Send the request to the server
             if(is_query) {
-                this.websocket.send(JSON.stringify({
-                    action: `db_action_${this.dbActions.GET_DATA}`,
+                this.#websocket.send(JSON.stringify({
+                    action: `db_action_${this.#dbActions.GET_DATA}`,
                     data: {
-                        db_name: this.db_name,
+                        db_name: this.#db_name,
                         collection: collection,
                         query: query
                     }
                 }));
             }else{
-                this.websocket.send(JSON.stringify({
-                    action: `db_action_${this.dbActions.GET_ALL_DATA}`,
+                this.#websocket.send(JSON.stringify({
+                    action: `db_action_${this.#dbActions.GET_ALL_DATA}`,
                     data: {
-                        db_name: this.db_name,
+                        db_name: this.#db_name,
                         collection: collection,
                     }
                 }));
@@ -284,14 +295,14 @@
                 throw new Error('document must be an object');
             }
     
-            this.update_data_callback = callback;
+            this.#update_data_callback = callback;
     
             let update_data_arr = utils.convertToDotNotation(document);
     
-            this.websocket.send(JSON.stringify({
-                action: `db_action_${this.dbActions.UPDATE_DATA}`,
+            this.#websocket.send(JSON.stringify({
+                action: `db_action_${this.#dbActions.UPDATE_DATA}`,
                 data: {
-                    db_name: this.db_name,
+                    db_name: this.#db_name,
                     collection: collection,
                     query: query,
                     update: update_data_arr
@@ -341,12 +352,12 @@
                 throw new Error('query must be a string');
             }
     
-            this.delete_data_callback = callback;
+            this.#delete_data_callback = callback;
     
-            this.websocket.send(JSON.stringify({
-                action: `db_action_${this.dbActions.DELETE_DATA}`,
+            this.#websocket.send(JSON.stringify({
+                action: `db_action_${this.#dbActions.DELETE_DATA}`,
                 data: {
-                    db_name: this.db_name,
+                    db_name: this.#db_name,
                     collection: collection,
                     query: query
                 }
