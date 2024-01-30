@@ -11,14 +11,8 @@
     }
 }(typeof self !== 'undefined' ? self : this, function (uuid, utils, JsonDBAdapter) {
     class SharexSDK {
-        /**
-         * This is a constructor function that initializes a WebSocket connection and sets up various
-         * properties and methods for managing the connection and handling server actions.
-         * @param [options] - An object containing optional parameters for the constructor.
-         */
 
         // List of private variables
-
         #preserve_session_id = false; // Default preserve_session_id
         #debug = false; // Default debug mode
         #hostname = null; // Default hostname
@@ -63,6 +57,11 @@
         // Default websocket
         #websocket = null;
 
+        /** 
+         * This is a constructor function that initializes a WebSocket connection and sets up various
+         * properties and methods for managing the connection and handling server actions.
+         * @param [options] - An object containing optional parameters for the constructor.
+         */
         constructor(options = {}) {
     
             if(typeof options !== 'object' || options === null) {
