@@ -471,4 +471,5 @@ my_db_instance.deleteById('my_collection', uuid, (response) => {
 3. This library is still in development and in beta version, there may be some bugs. If you find any bug, please create an issue on the GitHub repository.
 4. This library might still have some functionality missing. If you want to request a feature, please create an issue on the GitHub repository.
 5. There is a minor issue in `update` function in this library, if key doesn't exist in the document, it will not be added to the document on update. This issue is there because of the JSONPath library, which is used to query the documents. I will try to fix this issue in the later versions.
+6. There might be some documentation errors. If you find any error, please create an issue on the GitHub repository or you can also create a pull request to fix the error.
 --------------------------------------------
