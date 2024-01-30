@@ -179,6 +179,28 @@
                 }
             }));
         }
+
+        /**
+         * The `findById` function takes a collection, a UUID, and a callback function as arguments,
+         * and uses the `find` function to find an item in the collection with a matching UUID.
+         * @param collection - The name of the collection or database table where the document or
+         * record is stored.
+         * @param uuid - The `uuid` parameter is a unique identifier for the item you want to find in
+         * the collection. It is a string value.
+         * @param callback - The `callback` parameter is a function that will be called once the search
+         * is complete. It will be passed the result of the search as an argument.
+         */
+        findById(collection, uuid, callback) {
+            // Validate arguments
+            if (typeof callback !== 'function') {
+                throw new Error('callback must be a function');
+            } else if (typeof collection !== 'string') {
+                throw new Error('collection must be a string');
+            } else if (typeof uuid !== 'string') {
+                throw new Error('uuid must be a string');
+            }
+            this.find(collection, `$[?(@._uuid == '${uuid}')]`, callback);
+        }
     
         /**
          * The `find` function sends a request to the server to retrieve data from a specified collection
