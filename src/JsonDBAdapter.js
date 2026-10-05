@@ -76,6 +76,10 @@
          */
         updateInternalWebsocket(websocket) {
             this.#websocket = websocket;
+            this.#websocket.send(JSON.stringify({
+                action: 'db_action_init_db',
+                data: { db_name: this.#db_name }
+            }));
         }
     
         /**

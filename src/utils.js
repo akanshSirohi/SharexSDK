@@ -4,7 +4,7 @@
  * @returns the UID (Unique Identifier) of a plugin extracted from the given URL.
  */
 function extractPluginUID(url) {
-    const pattern = /\/SharexApp\/([\w-]+)(?:\/[^/]+)*\/?/i;
+    const pattern = /\/SharexApp\/([\w.-]+)(?:\/[^/]+)*\/?/i;
     const match = url.match(pattern);
     return match ? match[1] : '';
 }
@@ -34,4 +34,46 @@ function convertToDotNotation(obj, parentKey = "") {
     return result;
 }
 
-module.exports = {extractPluginUID, convertToDotNotation};
+function connectionOptions(options, location) {
+    const development = options.development;
+    const debug = options.debug;
+    let server, token = '', packageName;
+    if (development !== undefined) {
+        if (!development || typeof development !== 'object' || typeof development.server_url !== 'string') {
+            throw new Error('development.server_url must be a ShareX HTTP URL');
+        }
+        server = new URL(development.server_url);
+        token = development.token || new URLSearchParams(server.hash.slice(1)).get('sharex-dev-token') || '';
+        if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('Copy the development connection from ShareX settings');
+        packageName = development.package_name || options.package_name;
+    } else if (debug !== undefined) {
+        if (!debug || typeof debug !== 'object' || typeof debug.host !== 'string' || !debug.port) {
+            throw new Error('debug must have a property called host and port');
+        }
+        const host = debug.host.includes(':') && !debug.host.startsWith('[') ? `[${debug.host}]` : debug.host;
+        server = new URL(`${debug.secure ? 'https' : 'http'}://${host}:${debug.port}`);
+        token = debug.token || '';
+        packageName = debug.package_name || options.package_name || 'debug';
+        if (token && !/^[a-f0-9]{64}$/.test(token)) throw new Error('Invalid development token');
+    } else {
+        if (!location) throw new Error('Create SharexSDK in the browser, or provide development.server_url');
+        server = new URL(location.href || `${location.protocol}//${location.hostname}:${location.port || (location.protocol === 'https:' ? 443 : 80)}${location.pathname}`);
+        packageName = options.package_name || extractPluginUID(location.pathname).replaceAll('-', '.');
+    }
+    if (!['http:', 'https:'].includes(server.protocol) || server.username || server.password) throw new Error('ShareX server must use HTTP or HTTPS');
+    if (typeof packageName !== 'string' || packageName.length > 128 || !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$/.test(packageName)) {
+        throw new Error('A valid plugin package_name is required');
+    }
+    const port = Number(server.port || (server.protocol === 'https:' ? 443 : 80));
+    if (!Number.isInteger(port) || port < 1 || port > 65534) throw new Error('ShareX HTTP port must be between 1 and 65534');
+    const socket = new URL(`${server.protocol === 'https:' ? 'wss' : 'ws'}://${server.hostname}:${port + 1}/`);
+    if (token) {
+        socket.pathname = '/__sharex_dev';
+        socket.searchParams.set('token', token);
+        socket.searchParams.set('package', packageName);
+        packageName = `dev.${packageName}`;
+    }
+    return { socketUrl: socket.href, packageName, sessionKey: `sharex_sdk_uuid:${server.origin}:${packageName}` };
+}
+
+module.exports = {extractPluginUID, convertToDotNotation, connectionOptions};

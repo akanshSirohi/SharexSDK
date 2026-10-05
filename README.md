@@ -2,7 +2,40 @@
 
 The SharexSDK library is a JavaScript library that facilitates communication between clients and servers using WebSocket technology. It provides an abstraction for handling common actions in a WebSocket-based application. It also provides the functionality to access JSON based DB functions out of the box that is designed to work with sharex only. This library is designed to develop the ShareX app plugins only.
 
-## Installation
+## Live plugin development (1.1.0)
+
+Run ShareX on your phone and start sharing. In Settings, enable **Plugin development**, wait for sharing to restart, and tap the connection button to copy the development connection. Run your plugin's dev server on your computer and pass the copied connection to the SDK:
+
+```js
+const sdk = new SharexSDK({
+    development: {
+        server_url: 'http://PHONE_IP:6060#sharex-dev-token=KEY_FROM_SHAREX',
+        package_name: 'sharex.starter.plugin'
+    },
+    public_data: { name: 'My browser' }
+});
+sdk.init((action, data) => {
+    if (action === 'open') {
+        sdk.getAllUsers(console.log);
+    }
+});
+// On component cleanup or when changing the connection:
+sdk.disconnect();
+```
+
+The HTTP server uses the app's configured port; WebSocket uses that port plus one. HTTP selects `ws://`, HTTPS selects `wss://`. The development key permits the `/__sharex_dev` socket endpoint only and is rechecked on every message. The app binds each development connection to `dev.<package_name>` to keep messaging and database data separate from installed plugins. Disable development or reset the key to revoke clients. Do not embed this key in a static build.
+
+Installed plugins should create `new SharexSDK({ public_data: {...} })` inside browser code. The SDK infers the ShareX host, protocol, port, and plugin package from `/SharexApp/<plugin-uid>/`. These connections retain normal browser approval and password checks. Create database instances only after `open`; database connections are reinitialized on reconnect. `publicData` is accepted as an alias for `public_data`. `connectionStatus` and `getConnectionStatus()` both report whether the socket is open.
+
+`preserve_session_id: true` uses a host/package-scoped sessionStorage key. Refreshing a tab preserves its identity; independent tabs do not share one UUID.
+
+The legacy `debug: { host, port }` option remains supported for authorized same-origin clients. For development from another origin, use `development` or include `token` and `package_name` in `debug`. Add `secure: true` to legacy debug options for HTTPS. HTTP ports must be between 1 and 65534 because the next port is reserved for WebSocket.
+
+In Next.js, initialize inside an effect and call `sdk.disconnect()` in its cleanup. This prevents duplicate connections and retry timers during Fast Refresh or React Strict Mode. The [Next.js starter](https://github.com/akanshSirohi/ShareX-Plugins/tree/master/sharex.starter.plugin) includes live messaging, persistent notes, and a static ZIP build.
+
+For local SDK development, use `file:../../SharexSDK` in a sibling plugin's dependencies. The package entry points at `src/SharexSDK.js`; `npm run build` produces the UMD browser bundle with the `SharexSDK` global and a source map. `npm pack` builds that bundle before packaging.
+
+### Install the SDK
 
 To use the SharexSDK library, you need to include it in your project. You can install it using npm or yarn:
 
@@ -30,8 +63,8 @@ The `SharexSDK` class can be used to create a new client instance. The construct
 
 ```js
 const options = { 
-    publicData: { username: 'JohnDoe' } // optional
-    preserve_session_id: true|false, // optional
+    public_data: { username: 'JohnDoe' }, // optional
+    preserve_session_id: true, // optional
     debug: {
         host: 'IP from ShareX app',
         port: 'Port from ShareX app',
@@ -44,7 +77,7 @@ const sdk = new SharexSDK(options);
 
 - The `publicData` object can be used to store any data, it will be stored on the server for as long as the connection is active and will be accessible to every other client connected to the server for the same plugin.
 - The `preserve_session_id` option can be used to preserve the session id of the user. If this option is set to true, the session id will be preserved and the user will be able to reconnect to the server using the same session id. If this option is set to false, the session id will be regenerated every time the user reconnects to the server.
-- The `debug` option can be used to enable debugging mode. If this option is set to true, the SDK will use the host and port specified in the `debug` object to connect to the server. If this option is set to false, the SDK will use the default host and port to connect to the server. The default host and port will picked from the URL of the app.<br><b>You should enable debugging mode if you are running the plugin on PC IDE, otherwise the SDK will not be able to connect to the server. You can disable debugging mode when you are running the plugin on the ShareX app.</b>
+- Omit `debug` for installed plugins. Use `development` with the copied ShareX connection when running a plugin from a PC dev server. Legacy `debug` is an object, not a boolean; include a token for cross-origin development.
 - The `reconnect_interval` option can be used to set the interval between reconnection attempts. The default value is 3000 milliseconds.
 
 
@@ -60,7 +93,7 @@ Initializes a WebSocket connection and sets up event listeners for various WebSo
 
 <b>Parameters:-</b>
 
-websocket_callbacks (optional): A callback function to handle different WebSocket events including `onopen`, `onclose`, `onerror`, and `onmessage`. The callback function will be passed a single argument, which is the event object.
+websocket_callbacks (optional): A function called with `(action, data)`. `msg_arrive` passes the message itself; `user_arrive` passes the user object; `user_left` passes an object with a `uuid` field. `open`, `close`, `error`, and `reconnect` pass the browser event.
 
 List of WebSocket events:
 ```
@@ -71,8 +104,8 @@ List of WebSocket events:
 
 // WebSocket events
 'open': Called when the WebSocket connection is established.
-'error': Called when the WebSocket connection is closed.
-'close': Called when an error occurs in the WebSocket connection.
+'error': Called when the WebSocket connection encounters an error.
+'close': Called when the WebSocket connection is closed.
 'reconnect': Called when the WebSocket connection is reconnected.
 ```
 
@@ -107,7 +140,7 @@ sdk.getAllUsers((allUsers) => {
   // allUsers is an array of objects with the following structure:
     // {
     //   uuid: 'abcd-1234',
-    //   publicData: { username: 'JohnDoe' }
+    //   public_data: { username: 'JohnDoe' }
     // }
 });
 ```
@@ -179,19 +212,18 @@ sdk.requestPublicData(recipientUUID, (publicData) => {
 import SharexSDK from 'sharex-sdk';
 
 const publicData = { username: 'JohnDoe' };
-const sdk = new SharexSDK(publicData);
+const sdk = new SharexSDK({ public_data: publicData });
 
 sdk.init((eventType, event) => {
   console.log(`WebSocket event: ${eventType}`, event);
+  if (eventType === 'open' || eventType === 'reconnect') {
+    sdk.getAllUsers((allUsers) => {
+      console.log('All users:', allUsers);
+      allUsers.filter((user) => user.uuid !== sdk.getMyUUID())
+        .forEach((user) => sdk.sendMsg(user.uuid, 'Hello, world!'));
+    });
+  }
 });
-
-sdk.getAllUsers((allUsers) => {
-  console.log('All users:', allUsers);
-});
-
-const recipientUUID = 'abcd-1234'; // Replace with the actual UUID
-const message = 'Hello, world!';
-sdk.sendMsg(recipientUUID, message);
 ```
 
 
@@ -201,7 +233,7 @@ sdk.sendMsg(recipientUUID, message);
 let all_users = []; 
 
 const sdk = new SharexSDK({
-    name: "Test User"
+    public_data: { name: "Test User" }
 });
 
 sdk.init((action, data)=>{

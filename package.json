@@ -1,10 +1,15 @@
 {
   "name": "sharex-sdk",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "",
-  "main": "dist/sharex-sdk.min.js",
+  "main": "src/SharexSDK.js",
+  "unpkg": "dist/sharex-sdk.min.js",
+  "jsdelivr": "dist/sharex-sdk.min.js",
+  "files": ["src", "dist", "README.md"],
   "scripts": {
-    "build": "webpack"
+    "build": "webpack",
+    "test": "node --test test/*.test.js",
+    "prepack": "npm run build"
   },
   "keywords": [],
   "author": "",

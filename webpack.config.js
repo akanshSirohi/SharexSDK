@@ -5,7 +5,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'sharex-sdk.min.js',
-    library: 'sharex-sdk',
+    library: 'SharexSDK',
     libraryTarget: 'umd',
     umdNamedDefine: true,
     globalObject: 'this',

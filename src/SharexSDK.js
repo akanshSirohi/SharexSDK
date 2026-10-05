@@ -14,9 +14,9 @@
 
         // List of private variables
         #preserve_session_id = false; // Default preserve_session_id
-        #debug = false; // Default debug mode
-        #hostname = null; // Default hostname
-        #port = null; // Default port
+        #socket_url = null;
+        #has_connected = false;
+        #stopped = false;
         #package_name = null; // Default package name
         #uuid = null; // Default uuid
 
@@ -77,66 +77,35 @@
                 this.#preserve_session_id = options.preserve_session_id;
             }
     
-            if(options.hasOwnProperty('debug')) {
-                // Check if debug is a object
-                if(typeof options.debug !== 'object' || options.debug === null) {
-                    throw new Error('debug must be an object');
-                }
-                // Check if debug has a property called mode
-                if(options.debug.hasOwnProperty('host') && typeof options.debug.host == 'string' && options.debug.hasOwnProperty('port')) {
-                    
-                    // Hostname
-                    this.#hostname = options.debug.host;
-    
-                    // Port
-                    this.#port = parseInt(options.debug.port);
-                    
-                    // Package Name
-                    this.#package_name = 'debug';
-    
-                    // Debug mode
-                    this.#debug = true;
-                }else{
-                    throw new Error('debug must have a property called host and port');
-                }
-            }
-    
-            if(!this.#debug) {
-                // Hostname
-                this.#hostname = window.location.hostname;
-    
-                // Port
-                this.#port = parseInt(window.location.port);
-    
-                // Package Name
-                this.#package_name = utils.extractPluginUID(window.location.pathname).replaceAll('-', '.');
-            }
+            const connection = utils.connectionOptions(options, typeof window === 'undefined' ? null : window.location);
+            this.#socket_url = connection.socketUrl;
+            this.#package_name = connection.packageName;
             
             if(!this.#preserve_session_id) {
                 // UUID for session
                 this.#uuid = uuid.v4();
             }else{
-                // Check if preserve_session_id is stored in localStorage and is a valid UUID
-                if(!localStorage.hasOwnProperty('sharex_sdk_uuid') || !uuid.validate(localStorage.getItem('sharex_sdk_uuid'))) {
-                    localStorage.setItem('sharex_sdk_uuid', uuid.v4());
+                // Preserve identity across refreshes, without sharing it between browser tabs.
+                if(!uuid.validate(sessionStorage.getItem(connection.sessionKey))) {
+                    sessionStorage.setItem(connection.sessionKey, uuid.v4());
                 }
-                // UUID for session retrieved from localStorage
-                this.#uuid = localStorage.getItem('sharex_sdk_uuid')
+                this.#uuid = sessionStorage.getItem(connection.sessionKey);
             }
     
             if(options.hasOwnProperty('reconnect_interval')) {
-                if(typeof options.reconnect_interval !== 'number') {
-                    throw new Error('reconnect_interval must be a number');
+                if(!Number.isFinite(options.reconnect_interval) || options.reconnect_interval <= 0) {
+                    throw new Error('reconnect_interval must be a positive finite number');
                 }
                 this.#reconnect_timer_interval = options.reconnect_interval;
             }
     
             // Public Init Data
-            if(options.hasOwnProperty('public_data')) {
-                if(typeof options.public_data !== 'object' || options.public_data === null || Array.isArray(options.public_data)) {
+            const publicData = options.public_data ?? options.publicData;
+            if(publicData !== undefined) {
+                if(typeof publicData !== 'object' || publicData === null || Array.isArray(publicData)) {
                     throw new Error('public_data must be an object');
                 }
-                this.#public_data = options.public_data;
+                this.#public_data = publicData;
             }
     
             
@@ -151,11 +120,20 @@
          * itself.
          */
         init(websocket_callbacks = null) {
+            if (websocket_callbacks !== null && typeof websocket_callbacks !== 'function') throw new Error('websocket_callbacks must be a function');
             this.#websocket_callbacks = websocket_callbacks;
+            if (this.#websocket !== null) return;
+            this.#stopped = false;
+            if (this.#reconnect_timer !== null) {
+                clearTimeout(this.#reconnect_timer);
+                this.#reconnect_timer = null;
+            }
             
             // WebSocket Init
-            this.#websocket = new WebSocket(`ws://${this.#hostname}:${this.#port + 1}`);
+            const socket = new WebSocket(this.#socket_url);
+            this.#websocket = socket;
             this.#websocket.addEventListener("open", (event) => {
+                if (this.#websocket !== socket || this.#stopped) return;
                 this.#connectionStatus = true;
                 this.#websocket.send(JSON.stringify({
                     action: this.#serverActions.INIT_USER,
@@ -166,9 +144,7 @@
                     }
                 }));
     
-                if(this.#reconnect_timer !== null) {
-                    clearTimeout(this.#reconnect_timer);
-                    this.#reconnect_timer = null;
+                if(this.#has_connected) {
                     if(this.#db_instance !== null) {
                         this.#db_instance.updateInternalWebsocket(this.#websocket);
                     }
@@ -180,30 +156,36 @@
                         this.#websocket_callbacks('open', event);
                     }
                 }
+                this.#has_connected = true;
             });
     
             this.#websocket.addEventListener("error", (event) => {
+                if (this.#websocket !== socket) return;
                 if (this.#websocket_callbacks != null) {
                     this.#websocket_callbacks('error', event);
                 }
             });
     
             this.#websocket.addEventListener("close", (event) => {
+                if (this.#websocket !== socket) return;
                 this.#connectionStatus = false;
+                this.#init_websocket = false;
                 this.#websocket = null;
                 if (this.#websocket_callbacks != null) {
                     this.#websocket_callbacks('close', event);
                 }
                 
                 // Reconnect
-                this.#reconnect_timer = setTimeout(() => {
-                    this.init(this.#websocket_callbacks);
+                if (!this.#stopped) this.#reconnect_timer = setTimeout(() => {
+                    if (!this.#stopped) this.init(this.#websocket_callbacks);
                 }, this.#reconnect_timer_interval);
             });
     
             this.#websocket.addEventListener("message", (event) => {
+                if (this.#websocket !== socket) return;
                 let data = event.data;
-                if(data.length > 0) {data = JSON.parse(data);}else{return;}
+                try { data = JSON.parse(data); } catch { return; }
+                if (!data || typeof data.action !== 'string') return;
                 switch (data.action) {
                     case this.#serverActions.RETURN_ALL_USERS:
                         if (this.#returnAllUsers != null) {
@@ -241,7 +223,7 @@
                         }
                         break;
                     default:
-                        if(data.action.startsWith('db_action_')) {
+                        if(data.action.startsWith('db_action_') && this.#db_instance !== null) {
                             this.#db_instance.websocket_handleDBAction(data);
                         }
                 }
@@ -250,6 +232,22 @@
             // Init WebSocket bool
             this.#init_websocket = true;
         }
+
+        /** Close the connection and cancel retries, including React effect cleanup. */
+        disconnect() {
+            this.#stopped = true;
+            clearTimeout(this.#reconnect_timer);
+            this.#reconnect_timer = null;
+            const socket = this.#websocket;
+            this.#websocket = null;
+            this.#connectionStatus = false;
+            this.#init_websocket = false;
+            if (socket) socket.close();
+            this.#has_connected = false;
+            this.#db_instance = null;
+        }
+
+        get connectionStatus() { return this.#connectionStatus; }
     
         /**
          * The function creates a new instance of a database with the given name and callbacks.
@@ -260,6 +258,7 @@
          * @returns {JsonDBAdapter} db_instance - An instance of JsonDBAdapter.
         */
         createDBInstance(db_name, db_callbacks) {
+            if (!this.#connectionStatus) throw new Error('WebSocket not connected');
             this.#db_instance = new JsonDBAdapter(db_name, this.#websocket, db_callbacks);
             return this.#db_instance;
         }
@@ -271,7 +270,7 @@
          * @param msg - The `msg` parameter is a string that represents the message you want to send.
          */
         sendMsg(uuid, msg) {
-            if (this.#init_websocket) {
+            if (this.#connectionStatus) {
                 this.#websocket.send(JSON.stringify({
                     action: this.#serverActions.SEND_MSG,
                     data: {
@@ -316,7 +315,7 @@
          * actions with the data.
          */
         getAllUsers(callback) {
-            if (this.#init_websocket) {
+            if (this.#connectionStatus) {
                 this.#websocket.send(JSON.stringify({
                     action: this.#serverActions.GET_ALL_USERS,
                 }));
@@ -336,7 +335,7 @@
          * actions with the data.
          */
         requestPublicData(uuid, callback) {     
-            if (this.#init_websocket) {
+            if (this.#connectionStatus) {
                 this.#websocket.send(JSON.stringify({
                     action: this.#serverActions.GET_PUBLIC_DATA_OF_USER,
                     data: {
