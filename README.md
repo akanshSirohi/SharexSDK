@@ -2,9 +2,9 @@
 
 The SharexSDK library is a JavaScript library that facilitates communication between clients and servers using WebSocket technology. It provides an abstraction for handling common actions in a WebSocket-based application. It also provides the functionality to access JSON based DB functions out of the box that is designed to work with sharex only. This library is designed to develop the ShareX app plugins only.
 
-## Live plugin development (1.2.0)
+## Live plugin development (1.2.1)
 
-Run ShareX on your phone and start sharing. In Settings, enable **Plugin development** and run your plugin's dev server. Initialize the SDK in development mode; it adds a draggable ShareX bubble to the page. Open the bubble, paste the connection copied from ShareX Settings, and connect. The bubble shows connection status and reconnect state.
+Run ShareX on your phone and start sharing. In Settings, enable **Plugin development** and run your plugin's dev server. Initialize the SDK in development mode; it adds a draggable ShareX logo bubble to the page. The bubble snaps with a short bounce into one of the four corners. Its popup opens inward from that corner and closes while the bubble moves. Open it, paste the connection copied from ShareX Settings, and connect. The popup shows connection and reconnect state. Its styles stay inside the SDK's Shadow DOM and do not affect the plugin UI.
 
 ```js
 const sdk = new SharexSDK({
