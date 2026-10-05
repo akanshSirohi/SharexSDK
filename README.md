@@ -32,7 +32,7 @@ The legacy `debug: { host, port }` option remains supported for authorized same-
 
 In Next.js, initialize inside an effect and call `sdk.disconnect()` in its cleanup. This prevents duplicate connections and retry timers during Fast Refresh or React Strict Mode. The [Next.js starter](https://github.com/akanshSirohi/ShareX-Plugins/tree/master/sharex.starter.plugin) includes live messaging, persistent notes, and a static ZIP build.
 
-For local SDK development, use `file:../../SharexSDK` in a sibling plugin's dependencies. The package entry points at `src/SharexSDK.js`; `npm run build` produces the UMD browser bundle with the `SharexSDK` global and a source map. `npm pack` builds that bundle before packaging.
+For local SDK development, the plugins starter aliases `sharex-sdk` to `../../SharexSDK/src/SharexSDK.js` only in its Next.js dev server. Its production build and package metadata continue to use the published npm version. The SDK package entry points at `src/SharexSDK.js`; `npm run build` produces the UMD browser bundle with the `SharexSDK` global and a source map. `npm pack` builds that bundle before packaging.
 
 ### Install the SDK
 
@@ -76,7 +76,7 @@ const sdk = new SharexSDK(options);
 
 - The `publicData` object can be used to store any data, it will be stored on the server for as long as the connection is active and will be accessible to every other client connected to the server for the same plugin.
 - The `preserve_session_id` option can be used to preserve the session id of the user. If this option is set to true, the session id will be preserved and the user will be able to reconnect to the server using the same session id. If this option is set to false, the session id will be regenerated every time the user reconnects to the server.
-- Omit `debug` for installed plugins. Use `development` with the copied ShareX connection when running a plugin from a PC dev server. Legacy `debug` is an object, not a boolean; include a token for cross-origin development.
+- Omit `debug` for installed plugins. Use `development: { package_name }` when running a plugin from a PC dev server; enter copied connection in the SDK bubble. Legacy `debug` is an object, not a boolean; include a token for cross-origin development.
 - The `reconnect_interval` option can be used to set the interval between reconnection attempts. The default value is 3000 milliseconds.
 
 
