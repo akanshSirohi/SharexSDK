@@ -2,16 +2,13 @@
 
 The SharexSDK library is a JavaScript library that facilitates communication between clients and servers using WebSocket technology. It provides an abstraction for handling common actions in a WebSocket-based application. It also provides the functionality to access JSON based DB functions out of the box that is designed to work with sharex only. This library is designed to develop the ShareX app plugins only.
 
-## Live plugin development (1.1.0)
+## Live plugin development (1.2.0)
 
-Run ShareX on your phone and start sharing. In Settings, enable **Plugin development**, wait for sharing to restart, and tap the connection button to copy the development connection. Run your plugin's dev server on your computer and pass the copied connection to the SDK:
+Run ShareX on your phone and start sharing. In Settings, enable **Plugin development** and run your plugin's dev server. Initialize the SDK in development mode; it adds a draggable ShareX bubble to the page. Open the bubble, paste the connection copied from ShareX Settings, and connect. The bubble shows connection status and reconnect state.
 
 ```js
 const sdk = new SharexSDK({
-    development: {
-        server_url: 'http://PHONE_IP:6060#sharex-dev-token=KEY_FROM_SHAREX',
-        package_name: 'sharex.starter.plugin'
-    },
+    development: { package_name: 'sharex.starter.plugin' },
     public_data: { name: 'My browser' }
 });
 sdk.init((action, data) => {
@@ -22,6 +19,8 @@ sdk.init((action, data) => {
 // On component cleanup or when changing the connection:
 sdk.disconnect();
 ```
+
+The SDK bubble keeps the connection key out of plugin source. To supply a connection in code, set `development.server_url` and `development.package_name`. The bubble then shows that the connection was provided in code and reports status without an input field. Never commit a real development key.
 
 The HTTP server uses the app's configured port; WebSocket uses that port plus one. HTTP selects `ws://`, HTTPS selects `wss://`. The development key permits the `/__sharex_dev` socket endpoint only and is rechecked on every message. The app binds each development connection to `dev.<package_name>` to keep messaging and database data separate from installed plugins. Disable development or reset the key to revoke clients. Do not embed this key in a static build.
 

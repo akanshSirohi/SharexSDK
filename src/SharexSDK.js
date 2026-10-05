@@ -26,6 +26,9 @@
         #reconnect_timer_interval = 3000; // Default reconnect timer interval
 
         #db_instance = null; // Default db instance
+        #development = false;
+        #development_package = null;
+        #development_control = null;
 
         #public_data = {}; // Default public data
         #init_websocket = false; // Default init websocket
@@ -80,6 +83,8 @@
             const connection = utils.connectionOptions(options, typeof window === 'undefined' ? null : window.location);
             this.#socket_url = connection.socketUrl;
             this.#package_name = connection.packageName;
+            this.#development = options.development !== undefined;
+            this.#development_package = this.#development ? (options.development.package_name || options.package_name) : null;
             
             if(!this.#preserve_session_id) {
                 // UUID for session
@@ -123,6 +128,11 @@
             if (websocket_callbacks !== null && typeof websocket_callbacks !== 'function') throw new Error('websocket_callbacks must be a function');
             this.#websocket_callbacks = websocket_callbacks;
             if (this.#websocket !== null) return;
+            if (this.#development) this.#mountDevelopmentControl();
+            if (!this.#socket_url) {
+                this.#setDevelopmentStatus('Paste connection copied from ShareX settings');
+                return;
+            }
             this.#stopped = false;
             if (this.#reconnect_timer !== null) {
                 clearTimeout(this.#reconnect_timer);
@@ -135,6 +145,7 @@
             this.#websocket.addEventListener("open", (event) => {
                 if (this.#websocket !== socket || this.#stopped) return;
                 this.#connectionStatus = true;
+                this.#setDevelopmentStatus('Connected to ShareX', 'online');
                 this.#websocket.send(JSON.stringify({
                     action: this.#serverActions.INIT_USER,
                     package_name: this.#package_name,
@@ -161,6 +172,7 @@
     
             this.#websocket.addEventListener("error", (event) => {
                 if (this.#websocket !== socket) return;
+                this.#setDevelopmentStatus('Connection failed. Check sharing, connection string, and network.', 'error');
                 if (this.#websocket_callbacks != null) {
                     this.#websocket_callbacks('error', event);
                 }
@@ -169,6 +181,7 @@
             this.#websocket.addEventListener("close", (event) => {
                 if (this.#websocket !== socket) return;
                 this.#connectionStatus = false;
+                this.#setDevelopmentStatus('Disconnected. Retrying…');
                 this.#init_websocket = false;
                 this.#websocket = null;
                 if (this.#websocket_callbacks != null) {
@@ -245,6 +258,54 @@
             if (socket) socket.close();
             this.#has_connected = false;
             this.#db_instance = null;
+            this.#development_control?.host.remove();
+            this.#development_control = null;
+        }
+
+        #setDevelopmentStatus(message, state = 'idle') {
+            if (!this.#development_control) return;
+            this.#development_control.status.textContent = message;
+            this.#development_control.status.dataset.state = state;
+        }
+
+        #mountDevelopmentControl() {
+            if (this.#development_control || typeof document === 'undefined' || !document.body) return;
+            const host = document.createElement('div');
+            host.style.cssText = 'position:fixed;z-index:2147483647;left:18px;bottom:18px;font:14px/1.4 system-ui,sans-serif;color:#17212b';
+            const root = host.attachShadow({ mode: 'open' });
+            root.innerHTML = `<style>
+                *{box-sizing:border-box} .bubble{width:54px;height:54px;border:0;border-radius:18px;background:linear-gradient(145deg,#137f78,#075a65);color:white;font-weight:800;font-size:18px;box-shadow:0 8px 28px #061b2d55;cursor:grab;touch-action:none}
+                .panel{position:absolute;left:0;bottom:66px;width:min(340px,calc(100vw - 32px));padding:18px;border:1px solid #dce4eb;border-radius:18px;background:#fff;box-shadow:0 18px 55px #061b2d33;display:none;color:#17212b}
+                .panel[open]{display:block}.top{display:flex;align-items:center;gap:10px;margin-bottom:14px}.badge{width:34px;height:34px;border-radius:11px;background:#e5f5f2;color:#08766b;display:grid;place-items:center;font-weight:800}.title{font-weight:750;font-size:15px}.sub{font-size:12px;color:#647482;margin-top:2px}label{display:block;font-size:12px;font-weight:650;margin:14px 0 6px}input{width:100%;padding:11px 12px;border:1px solid #ccd7df;border-radius:10px;font:13px system-ui;color:#17212b;background:#fff}button.connect{width:100%;margin-top:9px;padding:11px;border:0;border-radius:10px;background:#08766b;color:#fff;font-weight:700;cursor:pointer}.status{font-size:12px;color:#566773;background:#f3f6f8;padding:10px 11px;border-radius:10px;margin-top:12px;overflow-wrap:anywhere}.status[data-state=online]{color:#087255;background:#e8f7ef}.status[data-state=error]{color:#a83232;background:#fff0f0}.provided{display:none;font-size:12px;color:#647482;margin-top:11px}.provided[hidden]{display:none}.provided:not([hidden]){display:block}.close{position:absolute;right:13px;top:12px;border:0;background:none;font-size:20px;color:#71818d;cursor:pointer}
+            </style><button class="bubble" aria-label="ShareX development" title="ShareX development">S</button><section class="panel" aria-label="ShareX development connection"><button class="close" aria-label="Close">×</button><div class="top"><div class="badge">S</div><div><div class="title">ShareX development</div><div class="sub">Connect this browser to your phone</div></div></div><form><label for="connection">Development connection</label><input id="connection" type="password" autocomplete="off" spellcheck="false" placeholder="Paste connection from ShareX" required><button class="connect" type="submit">Connect</button></form><div class="provided" hidden>Connection string provided in code</div><div class="status" role="status">Waiting for connection</div></section>`;
+            const bubble = root.querySelector('.bubble'), panel = root.querySelector('.panel'), form = root.querySelector('form'), input = root.querySelector('input');
+            const status = root.querySelector('.status');
+            const provided = root.querySelector('.provided');
+            const close = root.querySelector('.close');
+            const hasConnection = Boolean(this.#socket_url);
+            form.hidden = hasConnection;
+            provided.hidden = !hasConnection;
+            bubble.addEventListener('click', () => { if (!host.dataset.dragged) panel.toggleAttribute('open'); host.dataset.dragged = ''; });
+            close.addEventListener('click', () => panel.removeAttribute('open'));
+            let drag;
+            bubble.addEventListener('pointerdown', event => { drag = { x: event.clientX, y: event.clientY, left: host.offsetLeft, top: host.offsetTop }; bubble.setPointerCapture(event.pointerId); });
+            bubble.addEventListener('pointermove', event => { if (!drag) return; const dx = event.clientX - drag.x, dy = event.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) host.dataset.dragged = 'yes'; host.style.left = `${Math.max(0, Math.min(innerWidth - 54, drag.left + dx))}px`; host.style.top = `${Math.max(0, Math.min(innerHeight - 54, drag.top + dy))}px`; host.style.bottom = 'auto'; });
+            bubble.addEventListener('pointerup', () => { drag = null; });
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                try {
+                    const parsed = new URL(input.value.trim());
+                    const config = utils.connectionOptions({ development: { server_url: parsed.href, package_name: this.#development_package } });
+                    this.#socket_url = config.socketUrl;
+                    this.#package_name = config.packageName;
+                    form.hidden = true; provided.hidden = false;
+                    this.#setDevelopmentStatus('Connecting to ShareX…');
+                    this.init(this.#websocket_callbacks);
+                } catch (error) { this.#setDevelopmentStatus(error.message, 'error'); }
+            });
+            document.body.appendChild(host);
+            this.#development_control = { host, status };
+            if (hasConnection) this.#setDevelopmentStatus('Connection string provided in code');
         }
 
         get connectionStatus() { return this.#connectionStatus; }
